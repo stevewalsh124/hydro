@@ -4,7 +4,7 @@
 tic <- proc.time()[3]
 
 library(GPfit)
-source("../bssanova.R")
+source("bssanova.R")
 
 p = 4     # number of parameters to vary for sensitivity analysis
 n_pc = 4  # number of principal components to model
