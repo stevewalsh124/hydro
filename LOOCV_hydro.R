@@ -1,5 +1,5 @@
 library(GPfit)
-source("../bssanova.R")
+source("bssanova.R")
 
 # main effects plots from hydro runs
 nruns <- 32
@@ -43,7 +43,7 @@ for (i in 1:nruns) {
                     "_NPERH_AGN_", NPERH_AGNs[i],
                     "_SEED_",seed_sc)
   
-  hydro_runs[[i]] <- read.table(paste0("ProfileData/SCIDAC_RUNS/128MPC_RUNS/", 
+  hydro_runs[[i]] <- read.table(paste0("128MPC_RUNS/", 
                                        run_dir, 
                                        "/analysis_pipeline/profiles/GalStellarMassFunction_624.txt"))
 }

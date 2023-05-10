@@ -1,5 +1,5 @@
 library(GPfit)
-source("../bssanova.R")
+source("bssanova.R")
 
 # main effects plots from hydro runs
 m <- 32 # number of runs

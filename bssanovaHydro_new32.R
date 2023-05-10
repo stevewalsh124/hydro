@@ -1,6 +1,9 @@
 # Set up the basic function to produce simulated (fake)
 # spectra on which we'll fit an emulator.
 
+library(GPfit)
+source("bssanova.R")
+
 p = 4
 # m = 20
 
@@ -133,15 +136,12 @@ matplot(smvals,bases[,1:1]%*%t(coef[,1:1])+mean0mat,type='l',ylab='P(k)')
 mtext('1 basis',side=3,lin=.2)
 
 # try fitting gp's to the coefficients
-library(GPfit)
-
 a1 = GP_fit(des01,coef[,1])
 a2 = GP_fit(des01,coef[,2])
 a3 = GP_fit(des01,coef[,3])
 a4 = GP_fit(des01,coef[,4])
 
 # try fitting bssanova to the coefficients
-source("../bssanova.R")
 b1 = bssanova(des01,coef[,1])
 b2 = bssanova(des01,coef[,2])
 b3 = bssanova(des01,coef[,3])
