@@ -31,7 +31,7 @@ if(PDF) pdf(paste0("pdf/hydro-SA-",des,if(des=="FF"){n_ff},
                    if(des=="unif"){paste0("-",m)},
                    "-nPC",n_pc,"_all64.pdf"))
 
-nv = 9
+nv = 11
 prange = seq(0,1,length=nv)
 
 load("rda/smvals_full.rda")
