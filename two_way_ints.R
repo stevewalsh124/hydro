@@ -19,19 +19,45 @@ zr <- c(0,0)
 for (i in 1:(p-1)) {
   for (j in (i+1):p) {
     for(sm in 1:n_sm){
-      two_way_ints <- matrix(NA, nv, nv)
+      two_way_ints <-two_way_ints1 <-two_way_ints2 <- matrix(NA, nv, nv)
       for (ii in 1:nv) {
         for (jj in 1:nv) {
-          two_way_ints[ii,jj] <- mean((bssEmu[,which(facDes[,i] == prange[ii] &
-                                                     facDes[,j] == prange[jj])])[sm,]) - avg_mean[sm]
+          two_way_ints[ii,jj] <- mean((bssEmu_meo[,which(facDes[,i] == prange[ii] &
+                                                           facDes[,j] == prange[jj])])[sm,]) - avg_mean[sm]
+          two_way_ints1[ii,jj] <- mean((bssEmu[,which(facDes[,i] == prange[ii] &
+                                                           facDes[,j] == prange[jj])])[sm,]) - avg_mean[sm]
+          two_way_ints2[ii,jj] <- mean((etaEmu[,which(facDes[,i] == prange[ii] &
+                                                           facDes[,j] == prange[jj])])[sm,]) - avg_mean[sm]
           
         }
       }
-      zr <- range(c(zr,two_way_ints))
+      zr <- range(c(zr,two_way_ints, two_way_ints1, two_way_ints2))
     }
   }
 }
 
+## BSS-ANOVA (MEs only)
+for (i in 1:(p-1)) {
+  for (j in (i+1):p) {
+    # par(mfrow=c(2,3),oma=c(4,4,1.5,1),mar=c(0,0,0,0))
+    for(sm in 1:n_sm){
+      two_way_ints <- matrix(NA, nv, nv)
+      for (ii in 1:nv) {
+        for (jj in 1:nv) {
+          two_way_ints[ii,jj] <- mean((bssEmu_meo[,which(facDes[,i] == prange[ii] &
+                                                       facDes[,j] == prange[jj])])[sm,]) - avg_mean[sm]
+        }
+      }
+      image.plot(two_way_ints, xlab = paste("param",i), ylab = paste("param",j),
+                 main = paste("bss-anova (MEs only), smval", sm),
+                 zlim = zr)
+    }
+  }
+}
+
+
+### BSS-ANOVA: MEs and 2WIs
+# get ranges so they are consistent across all plots
 for (i in 1:(p-1)) {
   for (j in (i+1):p) {
     # par(mfrow=c(2,3),oma=c(4,4,1.5,1),mar=c(0,0,0,0))
@@ -50,4 +76,25 @@ for (i in 1:(p-1)) {
   }
 }
 
+# GP-PC
+# get ranges so they are consistent across all plots
+for (i in 1:(p-1)) {
+  for (j in (i+1):p) {
+    # par(mfrow=c(2,3),oma=c(4,4,1.5,1),mar=c(0,0,0,0))
+    for(sm in 1:n_sm){
+      two_way_ints <- matrix(NA, nv, nv)
+      for (ii in 1:nv) {
+        for (jj in 1:nv) {
+          two_way_ints[ii,jj] <- mean((etaEmu[,which(facDes[,i] == prange[ii] &
+                                                       facDes[,j] == prange[jj])])[sm,]) - avg_mean[sm]
+        }
+      }
+      image.plot(two_way_ints, xlab = paste("param",i), ylab = paste("param",j),
+                 main = paste("GP-PC, smval", sm),
+                 zlim = zr)
+    }
+  }
+}
+
 dev.off()
+
