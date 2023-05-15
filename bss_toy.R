@@ -1,6 +1,8 @@
 # toy function to see if BSS-ANOVA code uses a 
 # higher order interaction component f_0
 
+library(fields)
+
 a <- 1
 nburn <- 1000
 ntot <- 2000
@@ -9,7 +11,7 @@ PDF <- T
 if(PDF) pdf(paste0("pdf/bss_toy_a",a,"_ntot",ntot,".pdf"))
 
 # generate training grid
-nx <- 25
+nx <- 11
 x <- seq(0,1,length.out=nx)
 xmat <- expand.grid(x,x,x)
 
@@ -32,7 +34,7 @@ plot(xmat[,1],y, col="gray", xlab = expression(x[1])); lines(x, rowMeans(y_arr),
 plot(xmat[,2],y, col="gray", xlab = expression(x[2])); lines(x, colMeans(y_arr), col="blue")
 plot(xmat[,3],y, col="gray", xlab = expression(x[3])); lines(x, rep(0, length(x)), col="blue")
 
-source("../bssanova.R")
+source("bssanova.R")
 
 #######################################
 # MAIN EFFECTS AND TWO-WAY INITERACNS #
