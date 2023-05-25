@@ -1,104 +1,89 @@
-# Set up the basic function to produce simulated (fake)
-# spectra on which we'll fit an emulator.
+# For a given training dataset, obtain batch predictions and 
+# main effects estimates, and ANOVA decomps of the variance
+# For either held out data or a full factorial design, etc
 
 tic <- proc.time()[3]
 
-library(GPfit)
-source("bssanova.R")
+do_GPMSA <- T
+do_BSS   <- F
+# do_BSSM  <- T
 
-p = 4     # number of parameters to vary for sensitivity analysis
-n_pc = 4  # number of principal components to model
+if(do_GPMSA) library(GPfit)
+if(do_BSS | do_BSSM) source("bssanova.R")
+
+####################################
+# Which data do will you train on? #
+####################################
+
+# Use the high res runs to train?
+hi <- T
+
+# Which design do you want to train with? a, c, or both?
+atf <- T
+ctf <- F
+
+##############################
+# Load the preprocessed data #
+##############################
+
+# load the training design (des01) 
+load(paste0("rda/des_",if(atf){"a"},if(ctf){"c"},".rda")) 
+des_train <- des01
+p = ncol(des_train)  # number of input parameters
+
+# load the stellar mass vals
+load(paste0("rda/smvals_",ifelse(hi,"hi","lo"),".rda"))
+
+# Load the pre-processed model runs (run preprocessing.R first)
+load(paste0("rda/modRuns_",ifelse(hi,"hi","lo"),"_",if(atf){"a"},if(ctf){"c"},".rda"))
+eta = modRuns
+nruns <- ncol(eta)
+
+#########################################
+# Choose # of PCs, and if to do pdf/rda #
+#########################################
+
+n_pc = 4         # number of principal components to model
 if(n_pc < 1 | n_pc > 11) stop("number of PCs has to be between 1 and 11")
 
 ERROR=F  # try putting error into the model output to see what happens
-PDF=T    # do we make pdfs?
+PDF=F    # do we make pdfs?
 WRITE=T  # write csvs and rda files?
 
-# which testing design to use?
+################################
+# Which testing design to use? #
+################################
+
 # FF: full factorial design padded with nv levels for each parameter; ntest = 2^(p-1) * (p*nv)
 # unif: uniform sampling design; ntest = m * (p*nv)
 # condl: conditional, each of nv settings for each param is 0.5 elsewhere (ntest = 1 * (p*nv))
-des <- "FF"
-if(!(des %in% c("FF","unif","condl"))) stop('des must be in c("FF","unif","condl")')
+des <- "lhsS"
+if(!(des %in% c("FF","unif","lhs","lhsS","unifS","condl","a","c","ac","lhs"))) 
+  stop('des must be in c("FF","unif","lhs","lhsS","unifS","condl","a","c","ac")')
 
-if(des =="unif") m <- 100 else m <- 1
+if(des %in% c("unif","lhs","lhsS","unifS")) m <- 10^4 else m <- 1
+if(des %in% c("lhsS","unifS")) seed <- 1
+
 if(des == "FF"){
-  n_ff <- 11
+  n_ff <- 2
   m <- n_ff^(p-1)
 } 
 
-if(PDF) pdf(paste0("pdf/hydro-SA-",des,if(des=="FF"){n_ff},
-                   if(des=="unif"){paste0("-",m)},
-                   "-nPC",n_pc,"_all64.pdf"))
+if(PDF) pdf(paste0("pdf/hydro-SA-",ifelse(hi,"hi-","lo-"),
+                   "train",if(atf){"a"},if(ctf){"c"},"-",
+                   "pred",des,if(des=="FF"){n_ff},
+                   if(des%in%c("unif","lhs","lhsS","unifS")){m},
+                   "-nPC",n_pc,".pdf"))
 
 nv = 11
 prange = seq(0,1,length=nv)
 
-load("rda/smvals_full.rda")
-smvals = smvals_full[which(smvals_full >= 10 & smvals_full <= 11.5)]
-
-# make a function that produces spectrum-like output, depending
-# on the 4 model parameters
-# simModel <- function(pmat){
-#   # makes a simulated output (over [-3,1]) for each row of pmat
-#   # pmat holds the 8-d parameter inputs.  The output is 100 x nrow(pmat)
-#   # smvals = seq(8.5, 12.5, length.out = 29)
-#   # xlocs = seq(8, 13, length.out = 8)         # knot locs
-#   # v0 = c(3.5,5,8.5,8.6,10.0,7.2,10.9,15.3) # knot values
-#   # dv1 = c(.35, .3, .21, .15, .15, .45, .2, .5)
-#   # dv2 = c(0,0,0,.1,.2,.2,.15,.1)
-#   # K = matrix(0,nrow=29,ncol=8)
-#   # for(i in 1:8) K[,i] = dnorm(smvals,mean=xlocs[i],sd=.7)
-#   eta0 = outer(avg_mean_hydro, rep(1, m))
-#   eta1 = outer(mainEffs_real[,1,1],pmat[,1])+outer(mainEffs_real[,nv,1],1-pmat[,1]) 
-#   eta2 = outer(mainEffs_real[,1,2],pmat[,2])+outer(mainEffs_real[,nv,2],1-pmat[,2]) 
-#   eta3 = outer(mainEffs_real[,1,3],pmat[,3])+outer(mainEffs_real[,nv,3],1-pmat[,3]) 
-#   eta4 = outer(mainEffs_real[,1,4],pmat[,4])+outer(mainEffs_real[,nv,4],1-pmat[,4]) 
-#   # return a 100xnrow(pmat) matrix of output
-#   return(eta0+eta1+eta2+eta3+eta4)
-# }
-
-# make some emulator runs - each column is a model run
-# modRuns = simModel(udesign)
-load("rda/modRuns_hydro.rda")
-modRuns_first32 <- modRuns
-load("rda/modRuns_hydro_new32.rda")
-modRuns <- cbind(modRuns_first32, modRuns_hydro)
-nruns <- ncol(modRuns)
 # plot them
-matplot(smvals, modRuns, type="l", 
-        xlab = "Stellar Mass", ylab = "GSMF_Apperture", main = "both x and y log10")
-
-matplot(smvals, 10^modRuns, type="l", 
-        xlab = "Stellar Mass", ylab = "GSMF_Apperture", main = "only x log10")
-# read in the space filling LHC design from the Mira-Titan paper
-des0 = read.table("hydro.design")
-des00 = read.table("hydro.design_c")
-des1 <- rbind(des0, des00)
-colnames(des1) <- c("kappa", "EGW", "NPERH_AGN", "SeedMass")
-# m = nrow(des0)
-maxvals = c(8,4,4,4e6)
-minvals = c(2,.25,1.5,4e5)
-
-des01 = matrix(NA,nrow=nrow(des1),ncol=p)
-for(k in 1:p) des01[,k] = (des1[,k]-minvals[k])/(maxvals[k]-minvals[k])
-
-# plot to check
-# if(PDF) pdf('pdf/designnrunsx8.pdf',width=7,height=7)
-pairs(des1,pch=c(rep('.',32),rep("*",32)))
-# if(PDF) dev.off()
-pairs(des01,pch=c(rep('.',32),rep("*",32)))
-
-# write out the 01 design easily readable by matlab
-if(WRITE) write(t(des01),file='hydro_design_out_64.txt',ncol=p,sep=' ')
-
-# create the simulation output for this design
-eta = modRuns
-matplot(smvals,eta,type='l')
-
-# write it to a file; each column a simulation output
-if(WRITE) write(t(eta),file='eta-hydro_64.txt',ncol=nruns)
-# matplot(smvals,matrix(scan('eta-100xnruns.txt'),nrow=100,byrow=T),type='l')
+matplot(smvals, eta, type="l", 
+        xlab = "log10(Stellar Mass)", ylab = "log10(GSMF_Apperture)", 
+        main = paste0(nruns, " training runs, ",
+                      ifelse(hi,"hi ","lo "),
+                      "res, designs ",if(atf){"a "},if(ctf){"c"}))
 
 n_sm <- length(smvals)
 
@@ -118,6 +103,7 @@ coef = a$v*sqrt(nruns)
 # accordingly, scale the bases so when multiplied by
 # the coef's, we'll get the spectra back
 bases = a$u%*%diag(a$d)/sqrt(nruns)
+matplot(bases, type="l")
 
 spectraFull = bases%*%t(coef)
 par(mfrow=c(2,3),oma=c(0,0,0,0),mar=c(4,4,1.5,1))
@@ -163,28 +149,30 @@ mtext('9 bases',side=3,lin=.2)
 as <- list()
 for (i in 1:n_pc) {
   print(paste("GP",i))
-  as[[i]] = GP_fit(des01,coef[,i])
+  as[[i]] = GP_fit(des_train,coef[,i])
 }
 
-# try fitting bssanova to the coefficients
-bs <- list()
-for (i in 1:n_pc) {
-  print(paste("BSS-ANOVA",i))
-  bs[[i]] = bssanova(des01,coef[,i])
-}
-
-# MEO: Main effects only
-bms <- list()
-for (i in 1:n_pc) {
-  print(paste("BSS-ANOVA-MEO",i))
-  bms[[i]] = bssanova(des01,coef[,i], int.order = 1)
+if(do_BSS){
+  # try fitting bssanova to the coefficients
+  bs <- list()
+  for (i in 1:n_pc) {
+    print(paste("BSS-ANOVA",i))
+    bs[[i]] = bssanova(des_train,coef[,i])
+  }
+  
+  # MEO: Main effects only
+  bms <- list()
+  for (i in 1:n_pc) {
+    print(paste("BSS-ANOVA-MEO",i))
+    bms[[i]] = bssanova(des_train,coef[,i], int.order = 1)
+  }
 }
 
 if(ERROR){
   aes <- list()
   for (i in 1:n_pc) {
     print(paste("GP w/ error",i))
-    aes[[i]] = GP_fit(des01,coef[,i]+rnorm(m,mean=0,sd=.001))
+    aes[[i]] = GP_fit(des_train,coef[,i]+rnorm(m,mean=0,sd=.001))
   }
 }
 
@@ -229,10 +217,11 @@ if(des == "FF"){
   facDes_all <- unname(facDes_all)
   facDes <- facDes_all
   
-} else if(des =="unif") {
-  
+} else if(des %in% c("unif","lhs")) {
   # generate parameter settings that are uniform over [0,1]^8
-  udesign = matrix(runif(p*m),ncol=p) #lhs::randomLHS(m,p) #
+  if(des=="unif") udesign = matrix(runif(p*m),ncol=p) 
+  if(des=="lhs") udesign <- lhs::randomLHS(m,p) 
+  
   # estimate main effect for parameter 1
   # repeat the udesign matrix nv times
   repUdes = matrix(rep(t(udesign),nv),ncol=p,byrow=TRUE)
@@ -252,7 +241,24 @@ if(des == "FF"){
   facDes_all <- as.matrix(dplyr::bind_rows(list_facDes))
   facDes_all <- unname(facDes_all)
   facDes <- facDes_all
-} else {stop("Value for 'des' argument not recognized")}
+  
+} else if(des %in% c("lhsS","unifS")) {
+  if(des=="unifS") facDes = matrix(runif(p*m),ncol=p) 
+  if(des=="lhsS") facDes <- lhs::randomLHS(m,p) 
+  
+} else if(des =="a") {
+  load("rda/des_a.rda")
+  facDes <- des01
+} else if(des =="c") {
+  load("rda/des_a.rda")
+  facDes <- des01
+} else if(des =="ac") {
+  load("rda/des_a.rda")
+  facDesa <- des01
+  load("rda/des_c.rda")
+  facDesc <- des01
+  facDes <- rbind(facDesa, facDesc)
+}
 
 ntest <- nrow(facDes)
 
@@ -263,18 +269,20 @@ for (i in 1:n_pc) {
   aps[[i]] = predict(as[[i]],facDes)
 }
 
-# now for the bssanova fits
-bps <- list()
-for (i in 1:n_pc) {
-  print(paste("BSS-ANOVA pred",i))
-  bps[[i]] = predict.bssanova(facDes, bs[[i]])
-}
-
-# now for the bssanova fits (main effects only)
-bmps <- list()
-for (i in 1:n_pc) {
-  print(paste("BSS-ANOVA-MEO pred",i))
-  bmps[[i]] = predict.bssanova(facDes, bms[[i]])
+if(do_BSS){
+  # now for the bssanova fits
+  bps <- list()
+  for (i in 1:n_pc) {
+    print(paste("BSS-ANOVA pred",i))
+    bps[[i]] = predict.bssanova(facDes, bs[[i]])
+  }
+  
+  # now for the bssanova fits (main effects only)
+  bmps <- list()
+  for (i in 1:n_pc) {
+    print(paste("BSS-ANOVA-MEO pred",i))
+    bmps[[i]] = predict.bssanova(facDes, bms[[i]])
+  }
 }
 
 if(ERROR){
@@ -292,15 +300,18 @@ eta_preds <- list()
 for (i in 1:n_pc) eta_preds[[i]] = outer(bases[,i],aps[[i]]$Y_hat)
 etaEmu <- mean0pred + Reduce('+', eta_preds)
 
-# now bss
-bss_preds <- list()
-for (i in 1:n_pc) bss_preds[[i]] = outer(bases[,i],bps[[i]]$yhat)
-bssEmu = mean0pred + Reduce('+', bss_preds)
+if(do_BSS){
+  # now bss
+  bss_preds <- list()
+  for (i in 1:n_pc) bss_preds[[i]] = outer(bases[,i],bps[[i]]$yhat)
+  bssEmu = mean0pred + Reduce('+', bss_preds)
+  
+  # now bss (main effects only)
+  bssm_preds <- list()
+  for (i in 1:n_pc) bssm_preds[[i]] = outer(bases[,i],bmps[[i]]$yhat)
+  bssEmu_meo = mean0pred + Reduce('+', bssm_preds)
+}
 
-# now bss (main effects only)
-bssm_preds <- list()
-for (i in 1:n_pc) bssm_preds[[i]] = outer(bases[,i],bmps[[i]]$yhat)
-bssEmu_meo = mean0pred + Reduce('+', bssm_preds)
 
 if(ERROR){
   etae_preds <- list()
@@ -322,6 +333,34 @@ if(ntest < 1000){
   
   matplot(smvals,bssEmu_meo,type='l',ylab='bss (main effects only) emulator')
   mtext(paste0(ntest,'-run design, bss-anova (MEs only)'),side=3,line=.1,cex=.9)
+}
+
+if(des %in% c("a","c")){
+  load(paste0("rda/modRuns_",ifelse(hi,"hi","lo"),"_",des,".rda"))
+  par(mfrow=c(2,2),oma=c(0,0,0,0),mar=c(4,4,1.5,1))
+  matplot(smvals,modRuns,type='l',ylab='GSMF_A')
+  mtext('true testing set',side=3,line=.1,cex=.9)
+  
+  matplot(smvals,etaEmu,type='l',ylab='emulator')
+  mtext(paste0('GP-PC predictions'),side=3,line=.1,cex=.9)
+  
+  matplot(smvals,bssEmu,type='l',ylab='bss emulator')
+  mtext(paste0('bss-anova (MEs and 2WIs) predictions'),side=3,line=.1,cex=.9)
+  
+  matplot(smvals,bssEmu_meo,type='l',ylab='bss (main effects only) emulator')
+  mtext(paste0('bss-anova (MEs only) predictions'),side=3,line=.1,cex=.9)
+  
+  matplot(smvals,modRuns,type='l',ylab='GSMF_A')
+  mtext('true testing set',side=3,line=.1,cex=.9)
+  
+  matplot(smvals,etaEmu - modRuns,type='l',ylab='emulator')
+  mtext(paste0('GP-PC errors'),side=3,line=.1,cex=.9)
+  
+  matplot(smvals,bssEmu - modRuns,type='l',ylab='bss emulator')
+  mtext(paste0('bss-anova (MEs and 2WIs) errors'),side=3,line=.1,cex=.9)
+  
+  matplot(smvals,bssEmu_meo - modRuns,type='l',ylab='bss (main effects only) emulator')
+  mtext(paste0('bss-anova (MEs only) errors'),side=3,line=.1,cex=.9)
 }
 
 # etatrue = simModel(facDes)
@@ -538,6 +577,10 @@ toc <- proc.time()[3]
 toc - tic
 
 if(PDF) dev.off()
-if(WRITE) save.image(paste0("/projects/precipit/hydro/hydro-SA-",des,if(des=="FF"){n_ff},
-                            if(des=="unif"){paste0("-",m)},"-nPC",n_pc,"_all64.rda"))
+if(WRITE) save.image(paste0("/projects/precipit/hydro/hydro-SA-",
+                            ifelse(hi,"hi-","lo-"),"train",if(atf){"a"},if(ctf){"c"},"-",
+                            "pred",des,if(des=="FF"){n_ff},
+                            if(des%in%c("unif","lhs","lhsS","unifS")){m},
+                            if(des %in% c("lhsS","unifS")){paste0("s",seed)},
+                            "-nPC",n_pc,".rda"))
 
