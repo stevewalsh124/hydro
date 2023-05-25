@@ -2,14 +2,14 @@
 # Right now, *only* trying to get a plot for x1's main effect
 # Will extend to x2, x3, and x4 afterwards.
 
-PDF <- F
-if(PDF) pdf("pdf/UQ_MEs.pdf")
-
 library(fields)
 library(LaplacesDemon)
 
 # This loads results from a GP_fit for each FPC
-load("rda/hydro-SA-FF3-nv9-nPC4_all64.rda")
+load("/projects/precipit/hydro/hydro-SA-FF3-nPC4_all64.rda")
+
+PDF <- F
+if(PDF) pdf("pdf/UQ_MEs.pdf")
 
 # this subsets the part of the full factorial design that varies x1
 # by nv = 9 (e.g.) values, while x2,x3,x4 are varied by n_ff (e.g., 3)
@@ -82,7 +82,7 @@ get_first_ME <- function(as, plot = F){
     # npred x npred covariance matrix for the prediction (facDes) locations
     # **problem** the diagonal elements != sig2 when I have the means
     # of the other dimensions included...
-    Sigma_X1M <- sig2 * R1x1p #* mean(R2x2p) * mean(R3x3p) * mean(R4x4p)
+    Sigma_X1M <- sig2 * R1x1p * mean(R2x2p) * mean(R3x3p) * mean(R4x4p)
     range(Sigma_X1M)
     if(plot) image.plot(Sigma_X1M, main = "pred", asp=1)
     # dim(Sigma_X1M)
