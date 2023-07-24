@@ -516,7 +516,7 @@ xnew..<<-xnew
       }
       y.pred[i,]<-fit$int[i]+apply(curves[,i,],2,sum)
       #display current value of the chain
-      if(i%%10==0)
+      if(i%%500==0)
         cat("\niteration =", i,"out of",runs)
   }
   pred.mn<-apply(y.pred[(fit$burn+1):fit$runs,],2,mean)
