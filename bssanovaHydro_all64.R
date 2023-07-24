@@ -5,8 +5,8 @@
 tic <- proc.time()[3]
 
 do_GPMSA <- T
-do_BSS   <- F
-# do_BSSM  <- T
+do_BSS   <- T
+do_BSSM  <- T
 
 if(do_GPMSA) library(GPfit)
 if(do_BSS | do_BSSM) source("bssanova.R")
@@ -16,11 +16,20 @@ if(do_BSS | do_BSSM) source("bssanova.R")
 ####################################
 
 # Use the high res runs to train?
-hi <- T
+hi <- F
 
 # Which design do you want to train with? a, c, or both?
 atf <- T
-ctf <- F
+ctf <- T
+
+seed <- 1
+
+args <- commandArgs(TRUE)
+if(length(args) > 0)
+  for(i in 1:length(args))
+    eval(parse(text=args[[i]]))
+
+print(seed)
 
 ##############################
 # Load the preprocessed data #
@@ -47,7 +56,7 @@ n_pc = 4         # number of principal components to model
 if(n_pc < 1 | n_pc > 11) stop("number of PCs has to be between 1 and 11")
 
 ERROR=F  # try putting error into the model output to see what happens
-PDF=F    # do we make pdfs?
+PDF=T    # do we make pdfs?
 WRITE=T  # write csvs and rda files?
 
 ################################
@@ -55,27 +64,27 @@ WRITE=T  # write csvs and rda files?
 ################################
 
 # FF: full factorial design padded with nv levels for each parameter; ntest = 2^(p-1) * (p*nv)
-# unif: uniform sampling design; ntest = m * (p*nv)
-# condl: conditional, each of nv settings for each param is 0.5 elsewhere (ntest = 1 * (p*nv))
-des <- "lhsS"
-if(!(des %in% c("FF","unif","lhs","lhsS","unifS","condl","a","c","ac","lhs"))) 
-  stop('des must be in c("FF","unif","lhs","lhsS","unifS","condl","a","c","ac")')
+# unif/lhs: uniform or LHS design; ntest = m * (p*nv)
+# condl: conditional, each of nv settings for each param is 0.5 elsewhere; ntest = 1 * (p*nv)
+# unifS/lhsS: just a single unif/LHS draw of size m; ntest = m 
+des <- "FFS"
+if(!(des %in% c("FF","unif","lhs","FFS","lhsS","unifS","condl","a","c","ac","lhs"))) 
+  stop('des must be in c("FF","unif","lhs","FFS,"lhsS","unifS","condl","a","c","ac")')
 
 if(des %in% c("unif","lhs","lhsS","unifS")) m <- 10^4 else m <- 1
-if(des %in% c("lhsS","unifS")) seed <- 1
 
-if(des == "FF"){
-  n_ff <- 2
+if(des %in% c("FF","FFS")){
+  n_ff <- 4
   m <- n_ff^(p-1)
 } 
 
 if(PDF) pdf(paste0("pdf/hydro-SA-",ifelse(hi,"hi-","lo-"),
                    "train",if(atf){"a"},if(ctf){"c"},"-",
-                   "pred",des,if(des=="FF"){n_ff},
+                   "pred",des,if(des%in%c("FF","FFS")){n_ff},
                    if(des%in%c("unif","lhs","lhsS","unifS")){m},
                    "-nPC",n_pc,".pdf"))
 
-nv = 11
+nv = 4
 prange = seq(0,1,length=nv)
 
 # plot them
@@ -242,9 +251,17 @@ if(des == "FF"){
   facDes_all <- unname(facDes_all)
   facDes <- facDes_all
   
-} else if(des %in% c("lhsS","unifS")) {
+} else if(des %in% c("lhsS","unifS","FFS")) {
   if(des=="unifS") facDes = matrix(runif(p*m),ncol=p) 
-  if(des=="lhsS") facDes <- lhs::randomLHS(m,p) 
+  if(des=="lhsS") {
+    xm <- seq(0.05,0.95,length=m^(1/p))
+    Xm <- do.call(expand.grid,rep(list(xm), p))
+    facDes <- Xm + (runif(m*p)-0.5)/10
+  }
+  if(des=="FFS"){
+    x_ff <- seq(0,1,length = n_ff)
+    facDes=as.matrix(do.call(expand.grid,rep(list(x_ff), p)))
+  }
   
 } else if(des =="a") {
   load("rda/des_a.rda")
@@ -324,13 +341,13 @@ if(ntest < 1000){
   par(mfrow=c(2,2),oma=c(0,0,0,0),mar=c(4,4,1.5,1))
   matplot(smvals,eta,type='l',ylab='GSMF_A')
   mtext('32-run training set',side=3,line=.1,cex=.9)
-  
+
   matplot(smvals,etaEmu,type='l',ylab='emulator')
   mtext(paste0(ntest,'-run design, GP-PC'),side=3,line=.1,cex=.9)
-  
+
   matplot(smvals,bssEmu,type='l',ylab='bss emulator')
   mtext(paste0(ntest,'-run design, bss-anova (MEs and 2WIs)'),side=3,line=.1,cex=.9)
-  
+
   matplot(smvals,bssEmu_meo,type='l',ylab='bss (main effects only) emulator')
   mtext(paste0(ntest,'-run design, bss-anova (MEs only)'),side=3,line=.1,cex=.9)
 }
@@ -340,25 +357,25 @@ if(des %in% c("a","c")){
   par(mfrow=c(2,2),oma=c(0,0,0,0),mar=c(4,4,1.5,1))
   matplot(smvals,modRuns,type='l',ylab='GSMF_A')
   mtext('true testing set',side=3,line=.1,cex=.9)
-  
+
   matplot(smvals,etaEmu,type='l',ylab='emulator')
   mtext(paste0('GP-PC predictions'),side=3,line=.1,cex=.9)
-  
+
   matplot(smvals,bssEmu,type='l',ylab='bss emulator')
   mtext(paste0('bss-anova (MEs and 2WIs) predictions'),side=3,line=.1,cex=.9)
-  
+
   matplot(smvals,bssEmu_meo,type='l',ylab='bss (main effects only) emulator')
   mtext(paste0('bss-anova (MEs only) predictions'),side=3,line=.1,cex=.9)
-  
+
   matplot(smvals,modRuns,type='l',ylab='GSMF_A')
   mtext('true testing set',side=3,line=.1,cex=.9)
-  
+
   matplot(smvals,etaEmu - modRuns,type='l',ylab='emulator')
   mtext(paste0('GP-PC errors'),side=3,line=.1,cex=.9)
-  
+
   matplot(smvals,bssEmu - modRuns,type='l',ylab='bss emulator')
   mtext(paste0('bss-anova (MEs and 2WIs) errors'),side=3,line=.1,cex=.9)
-  
+
   matplot(smvals,bssEmu_meo - modRuns,type='l',ylab='bss (main effects only) emulator')
   mtext(paste0('bss-anova (MEs only) errors'),side=3,line=.1,cex=.9)
 }
@@ -367,7 +384,7 @@ if(des %in% c("a","c")){
 # matplot(smvals,etatrue,type='l',ylab='GSMF_A'); mtext('2^4-run design',side=3,line=.1,cex=.9)
 
 # compare 2^k model fits
-# grab 10 levels of smass and make the corresponding 
+# grab 10 levels of smass and make the corresponding
 igrab = round(seq(1,n_sm,length=n_sm))
 # etakFac = etatrue[igrab,]
 # # plot check ... again
@@ -375,22 +392,33 @@ igrab = round(seq(1,n_sm,length=n_sm))
 mainEffs_bss = mainEffs_gppc = mainEffs_bss_meo = array(NA,c(n_sm,nv,p))
 for(k in 1:p){
   # collect bss-anova (MEs and 2WIs) predictions
-  sims1 = bssEmu[,(k-1)*(ntest/p)+1:(ntest/p)]
+  if(des %in% c("lhsS","unifS","FFS")){
+    sims1 = bssEmu
+  } else {
+    sims1 = bssEmu[,(k-1)*(ntest/p)+1:(ntest/p)]
+  }
+  
   # reshape into a 3d array by kval,rep, paramval
   sims1a = array(sims1,c(n_sm,m,nv))
   # compute main effect
   mainEffs_bss[,,k] = apply(sims1a,c(1,3),mean)
-  
+
   # collect bss-anova (main effects only) predictions
-  sims1 = bssEmu_meo[,(k-1)*(ntest/p)+1:(ntest/p)]
-  # reshape into a 3d array by kval,rep, paramval
+  if(des %in% c("lhsS","unifS","FFS")){
+    sims1 = bssEmu_meo
+  } else {
+    sims1 = bssEmu_meo[,(k-1)*(ntest/p)+1:(ntest/p)]
+  }  # reshape into a 3d array by kval,rep, paramval
   sims1a = array(sims1,c(n_sm,m,nv))
   # compute main effect
   mainEffs_bss_meo[,,k] = apply(sims1a,c(1,3),mean)
-  
+
   # collect GP-PC predictions
-  sims1 = etaEmu[,(k-1)*(ntest/p)+1:(ntest/p)]
-  # reshape into a 3d array by kval,rep, paramval
+  if(des %in% c("lhsS","unifS","FFS")){
+    sims1 = etaEmu
+  } else {
+    sims1 = etaEmu[,(k-1)*(ntest/p)+1:(ntest/p)]
+  }  # reshape into a 3d array by kval,rep, paramval
   sims1a = array(sims1,c(n_sm,m,nv))
   # compute main effect
   mainEffs_gppc[,,k] = apply(sims1a,c(1,3),mean)
@@ -579,7 +607,7 @@ toc - tic
 if(PDF) dev.off()
 if(WRITE) save.image(paste0("/projects/precipit/hydro/hydro-SA-",
                             ifelse(hi,"hi-","lo-"),"train",if(atf){"a"},if(ctf){"c"},"-",
-                            "pred",des,if(des=="FF"){n_ff},
+                            "pred",des,if(des%in%c("FF","FFS")){n_ff},
                             if(des%in%c("unif","lhs","lhsS","unifS")){m},
                             if(des %in% c("lhsS","unifS")){paste0("s",seed)},
                             "-nPC",n_pc,".rda"))
