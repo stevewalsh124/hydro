@@ -3,23 +3,23 @@
 PNG <- F
 # need 8GB to load the 500 unif RData
 # get unif results from bssanovaHydro.R first
-load("rda/hydro-SA-unif-500.rda")
+load("rda/smvals_lo.rda")
+load("rda/modRuns_lo_ac.rda")
 
 # plot the 32 hydro runs
 if(PNG) png("png/32runs.png",height = 1000, width=1500,res = 300)
 par(mar=c(4.5,4.5,1,1)+0.1)
-matplot(smvals, modRuns[,order(modRuns[1,])], type="l", lty=1, lwd=2, col=viridisLite::viridis(32),
+matplot(smvals, modRuns[,order(modRuns[1,1:32])], type="l", lty=1, lwd=2, col=viridisLite::viridis(32),
         ylim = range(modRuns), xlab = "log10(stellar mass)", ylab="log10(GSMF)")
 if(PNG) dev.off()
 
-load("rda/modRuns_pred.rda")
 if(PNG) png("png/64runs.png",height = 1000, width=1500,res = 300)
 par(mar=c(4.5,4.5,1,1)+0.1)
-modRuns_all <- cbind(modRuns, modRuns_pred)
-matplot(smvals, modRuns_all[,order(modRuns_all[1,])], type="l", lty=1, lwd=2, col=viridisLite::viridis(64),
+matplot(smvals, modRuns[,order(modRuns[1,])], type="l", lty=1, lwd=2, col=viridisLite::viridis(64),
         ylim = range(modRuns), xlab = "log10(stellar mass)", ylab="log10(GSMF)")
 if(PNG) dev.off()
 
+load("/projects/precipit/hydro/hydro-SA-lo-trainac-predFF7-nPC4.rda")
 # look at estimated main effects; w/ average removed only (w/ and w/o below)
 if(PNG) png("png/main_effects_bss_meo.png", width = 2400, height = 800, res = 300)
 # Plot bss-anova (MEs only) main effects
@@ -63,7 +63,6 @@ for(k in 1:p){
 if(PNG) dev.off()
 
 # sum of squares on sqrt scale for the FF design (for all 3 methods)
-load("rda/hydro-SA-FF.rda")
 if(PNG) png("png/sqrt_ss_FF.png", width = 2400, height = 800, res = 300)
 {
   par(mfrow=c(1,3),oma=c(0,0,0,0),mar=c(4,4,1.8,1))
@@ -159,15 +158,67 @@ if(PNG) dev.off()
 
 
 
+if(PNG) png("png/LOOCV_predictions.png",width = 1200, height = 400, res = 150)
+yr = range(mainEffs_bss_meo - avg_mean)
+par(mfrow=c(1,3),oma=c(4,4,1,1),mar=c(0,0,0,0))
+
+ylim_all <- range(c(modRuns, LOOCV_preds, LOOCV_preds_b, LOOCV_preds_bm))
+
+matplot(smvals, modRuns_pred[,order(modRuns_pred[1,])], type="l", lty=2, 
+        lwd=2, col=viridisLite::viridis(32), axes=F,
+        ylim = ylim_all, xlab = "log10(smass)", ylab="log10(GSMF)")
+box();text(10.6,max(ylim_all)-.06,"GP",adj=c(0,0), cex=1.25)
+matplot(smvals, LOOCV_preds[,order(modRuns_pred[1,])], type="l", lty=1, 
+        lwd=2, col=viridisLite::viridis(32), axes=F, add = T)
+axis(1); axis(2)
+
+matplot(smvals, modRuns_pred[,order(modRuns_pred[1,])], type="l", lty=2, 
+        lwd=2, col=viridisLite::viridis(32), axes=F, 
+        ylim = ylim_all, xlab = "log10(smass)", ylab="log10(GSMF)")
+box();text(10.6,max(ylim_all)-.06,"BSS (2nd order)",adj=c(0,0), cex=1.25)
+matplot(smvals, LOOCV_preds_b[,order(modRuns_pred[1,])], type="l", lty=1, 
+        lwd=2, col=viridisLite::viridis(32), axes=F, add = T)
+axis(1)
+matplot(smvals, modRuns_pred[,order(modRuns_pred[1,])], type="l", lty=2, 
+        lwd=2, col=viridisLite::viridis(32), axes=F, 
+        ylim = ylim_all,xlab = "log10(smass)", ylab="log10(GSMF)")
+box();text(10.6,max(ylim_all)-.06,"BSS (1st order)",adj=c(0,0), cex=1.25)
+matplot(smvals, LOOCV_preds_bm[,order(modRuns_pred[1,])], type="l", lty=1, 
+        lwd=2, col=viridisLite::viridis(32), axes=F, add = T)
+axis(1)
+
+mtext('log10(Stellar Mass)',side=1,line=2.5,outer=T)
+mtext(paste0('log10(GSMF_A)'),side=2,line=2.5,outer=T)
+# mtext("bss-anova (MEs only) main effect estimates", side=3,outer = T)
+if(PNG) dev.off()
+
+
 
 # RMSE as a function of stellar mass (sm)
-if(PNG) png("png/RMSE_fn_of_sm.png", width = 2400, height = 1200, res = 300)
+if(PNG) png("png/RMSE_fn_of_sm_batch.png", width = 2400, height = 1200, res = 300)
 par(mfrow=c(1,1), mar=c(4, 4, 2, 2) + 0.1)
 rmseXsm <- rmseXsm_b <- rmseXsm_bm <- c()
 for (i in 1:nrow(modRuns_pred)) {
   rmseXsm[i] <- sqrt(mean((modRuns_pred[i,] - new32_preds[i,])^2))
   rmseXsm_b[i] <- sqrt(mean((modRuns_pred[i,] - new32_preds_b[i,])^2))
   rmseXsm_bm[i] <- sqrt(mean((modRuns_pred[i,] - new32_preds_bm[i,])^2))
+}
+
+plot(smvals,rmseXsm, type = "l", ylim=range(rmseXsm, rmseXsm_b, rmseXsm_bm), 
+     xlab="log10(stellar mass)", ylab="RMSE")
+lines(smvals,rmseXsm_b, col="red", lty=2)
+lines(smvals,rmseXsm_bm, col="blue", lty=3)
+legend(legend = c("GP-PC", "BSS (2nd order)", "BSS (1st order)"), "topleft", 
+       lty = 1:3, col=c("black","red","blue"))
+if(PNG) dev.off()
+
+if(PNG) png("png/RMSE_fn_of_sm_loocv.png", width = 2400, height = 1200, res = 300)
+par(mfrow=c(1,1), mar=c(4, 4, 2, 2) + 0.1)
+rmseXsm <- rmseXsm_b <- rmseXsm_bm <- c()
+for (i in 1:nrow(modRuns)) {
+  rmseXsm[i] <- sqrt(mean((modRuns[i,] - LOOCV_preds[i,])^2))
+  rmseXsm_b[i] <- sqrt(mean((modRuns[i,] - LOOCV_preds_b[i,])^2))
+  rmseXsm_bm[i] <- sqrt(mean((modRuns[i,] - LOOCV_preds_bm[i,])^2))
 }
 
 plot(smvals,rmseXsm, type = "l", ylim=range(rmseXsm, rmseXsm_b, rmseXsm_bm), 
@@ -187,7 +238,7 @@ par(mfrow=c(1,3), mar=c(4,4,1.8,1))
 plot(smvals, mean0mat[,1], type="l", xlab= "log10(stellar mass)", ylab = "log10(GSMF)")
 matplot(bases, type="l", xlab="log10(stellar mass)", ylab = "log10(GSMF)")
 
-x1_pred <- des_pred[,1]
-plot(x1_pred[order(x1_pred)], b1_pred$curves[1,800,][order(x1_pred)], type="l", xlab = expression(kappa), ylab = expression(W[1]))
+x1_pred <- facDes[,1]
+plot(x1_pred[order(x1_pred)], bps[[1]]$curves[1,800,][order(x1_pred)], type="l", xlab = expression(kappa), ylab = expression(W[1]))
 # points(x1_pred, b1_pred_meo$curves[1,cu,], col="blue")
 if(PNG) dev.off()
