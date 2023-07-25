@@ -1,2 +1,7 @@
 # hydro
-Sensitivity and Uncertainty Analyses for Hydrodynamical Runs
+## Sensitivity and Uncertainty Analyses for Hydrodynamical Runs
+
+These scripts analyze datasets with one of two designs ("a" and/or "c"); each design has 32 runs, for a current total of up to 64 runs being used for training (for a particular resolution). Additionally, there are hi-resolution (32MPC) and low-resolution (128MPC) versions for each of these runs, making for a grand total of 128 runs. Each design location (input) is 4-dimensional, and the output is functional in nature, representing the galaxy stellar mass function (GSMF). For more details on the background of this data as well as the subsequent modeling done, some details are provided in the fourth chapter of my [dissertation](https://vtechworks.lib.vt.edu/bitstream/handle/10919/115494/Walsh_SA_D_2023.pdf?sequence=1&isAllowed=y).
+
+In order to analyze these data, GPs model different principal components (PCs) of the GSMF. These GPs can have a covariance function which is constructed using the powered exponential, or a BSS-ANOVA covariance function. After the GP fit for each PC is done, the results can be combined to get predicted GSMFs for unobserved (or held out) input locations. This is done in the `bssanovaHydro*` files, with `bssanovaHydro_all64.R` being the most up to date; it has toggles for using the hi- or low-res runs, whether to train on design a, design c, or both (design ac), and what type of predictive design you would like (a or c, full factorial (FF), Latin Hypercube (LHS), uniform, etc).
+
