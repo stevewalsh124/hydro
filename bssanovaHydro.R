@@ -66,15 +66,15 @@ WRITE=T  # write csvs and rda files?
 # FF: full factorial design padded with nv levels for each parameter; ntest = 2^(p-1) * (p*nv)
 # unif/lhs: uniform or LHS design; ntest = m * (p*nv)
 # condl: conditional, each of nv settings for each param is 0.5 elsewhere; ntest = 1 * (p*nv)
-# unifS/lhsS: just a single unif/LHS draw of size m; ntest = m 
-des <- "FFS"
+# unifS/lhsS/FFS: just a single unif/LHS/FF draw of size m; ntest = m 
+des <- "FF"
 if(!(des %in% c("FF","unif","lhs","FFS","lhsS","unifS","condl","a","c","ac","lhs"))) 
   stop('des must be in c("FF","unif","lhs","FFS,"lhsS","unifS","condl","a","c","ac")')
 
 if(des %in% c("unif","lhs","lhsS","unifS")) m <- 10^4 else m <- 1
 
 if(des %in% c("FF","FFS")){
-  n_ff <- 4
+  n_ff <- 5
   m <- n_ff^(p-1)
 } 
 
@@ -84,7 +84,9 @@ if(PDF) pdf(paste0("pdf/hydro-SA-",ifelse(hi,"hi-","lo-"),
                    if(des%in%c("unif","lhs","lhsS","unifS")){m},
                    "-nPC",n_pc,".pdf"))
 
-nv = 4
+# number of low-to-high variations for each input
+# to visualize the main effects
+nv = 9 
 prange = seq(0,1,length=nv)
 
 # plot them
